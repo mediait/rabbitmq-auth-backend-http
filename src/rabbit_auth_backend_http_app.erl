@@ -23,6 +23,7 @@
 -export([init/1]).
 
 start(_Type, _StartArgs) ->
+    % cache:start(),
     supervisor:start_link({local,?MODULE},?MODULE,[]).
 
 stop(_State) ->
