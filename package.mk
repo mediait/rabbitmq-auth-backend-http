@@ -1,1 +1,1 @@
-DEPS:=rabbitmq-server rabbitmq-erlang-client mochiweb-wrapper
+DEPS:=rabbitmq-server rabbitmq-erlang-client mochiweb-wrapper ets-cache
