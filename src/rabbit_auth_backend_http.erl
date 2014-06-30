@@ -69,21 +69,30 @@ bool_req(PathName, Props) ->
     end.
 
 http_get(Path) ->
-    URI = uri_parser:parse(Path, [{port, 80}]),
-    {host, Host} = lists:keyfind(host, 1, URI),
-    {port, Port} = lists:keyfind(port, 1, URI),
-    HostHdr = rabbit_misc:format("~s:~b", [Host, Port]),
-    case httpc:request(get, {Path, [{"Host", HostHdr}]}, ?HTTPC_OPTS, []) of
-        {ok, {{_HTTP, Code, _}, _Headers, Body}} ->
-            case Code of
-                200 -> case parse_resp(Body) of
-                           {error, _} = E -> E;
-                           Resp           -> Resp
-                       end;
-                _   -> {error, {Code, Body}}
+    case cache:get(Path) of
+        undefined ->
+            URI = uri_parser:parse(Path, [{port, 80}]),
+            {host, Host} = lists:keyfind(host, 1, URI),
+            {port, Port} = lists:keyfind(port, 1, URI),
+            HostHdr = rabbit_misc:format("~s:~b", [Host, Port]),
+            case httpc:request(get, {Path, [{"Host", HostHdr}]}, ?HTTPC_OPTS, []) of
+                {ok, {{_HTTP, Code, _}, _Headers, Body}} ->
+                    case Code of
+                        200 ->  case parse_resp(Body) of
+                                    {error, _} = E -> cache:set(Path, E, 600), % Ten mintes caching of errors
+                                                      E;
+                                    Resp           -> cache:set(Path, Resp, 86400), % 24 hours caching if success
+                                                      Resp
+                                end;
+                        _   ->  E = {error, {Code, Body}},
+                                cache:set(Path, E, 600), % Ten mintes caching of errors
+                                E
+                    end;
+                {error, _} = E -> cache:set(Path, E, 600), % Ten mintes caching of errors
+                                  E
             end;
-        {error, _} = E ->
-            E
+        CachedVal ->
+            CachedVal
     end.
 
 q(PathName, Args) ->
