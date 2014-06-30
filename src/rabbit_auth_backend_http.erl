@@ -81,7 +81,7 @@ http_get(Path) ->
                         200 ->  case parse_resp(Body) of
                                     {error, _} = E -> cache:set(Path, E, 600), % Ten mintes caching of errors
                                                       E;
-                                    Resp           -> cache:set(Path, Resp, 86400), % 24 hours caching if success
+                                    Resp           -> cache:set(Path, Resp, timeout_from_env()),
                                                       Resp
                                 end;
                         _   ->  E = {error, {Code, Body}},
@@ -93,6 +93,14 @@ http_get(Path) ->
             end;
         CachedVal ->
             CachedVal
+    end.
+
+timeout_from_env() ->
+    case os:getenv("CACHE_TIMEOUT") of
+        false ->
+            86400; % 24 hours caching if success
+        Val ->
+            list_to_integer(Val)
     end.
 
 q(PathName, Args) ->
